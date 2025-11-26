@@ -1,6 +1,10 @@
 // v2 version check included
 // 06/11/2025 : Content Type in header set to 'application/json', so json.encode should not be called anymore
 // 06/11/2025 : Spaces removed or added
+// 26/11/2025 : Ajax calls replace by fetch in doFetch; json() and text() calls included in doFetch
+// 26/11/2025 : Minor changes in names and texts
+// 26/11/2025 : Centralize code for modal windows in createModal and disable/enable buttons to prevent double clicking
+// 26/11/2025 : Move JSON.stringify from addToLogData to calling codes
 
 const ncVersion = document.getElementById('ncVersion');
 const updateRunning = document.getElementById('updateRunning');
@@ -585,7 +589,7 @@ function renderNCLogs() {
       .map(checkbox => parseInt(checkbox.value));
 
   const now = new Date();
-   const cutoff = new Date(now.getTime() - days*24*60*60*1000);
+  const cutoff = new Date(now.getTime() - days*24*60*60*1000);
 
   const tbody = document.querySelector('#logTable tbody');
   tbody.innerHTML = '';

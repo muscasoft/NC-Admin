@@ -7,6 +7,8 @@
 // 06/11/2025 : Response code changed from 404 to 400
 // 06/11/2025 : Spaces removed or added
 // 07/11/2025 : Replaced returnAsJson by returnValue to prevent quotes around strings
+// 26/11/2025 : Added header info in returnValue
+// 26/11/2025 : Error solved in IsUpdateRunning
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/backup.php';
