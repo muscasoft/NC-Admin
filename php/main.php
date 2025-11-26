@@ -10,6 +10,8 @@
 // 26/11/2025 : Added header info in returnValue
 // 26/11/2025 : Error solved in IsUpdateRunning
 // 26/11/2025 : Long switch statement replaced with  associative array mapping action names to corresponding handler functions
+// 26/11/2025 : Call to new functions repairMimeTypeMigrationAvailable and repairDatabaseHasMissingIndices
+// 26/11/2025 : try/catch to catch errors
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/backup.php';
@@ -19,81 +21,87 @@ require_once __DIR__ . '/general.php';
 require_once __DIR__ . '/logs.php';
 require_once __DIR__ . '/setupchecks.php';
 
+global $skipRepairSetupChecks, $definedActions;
+
 $action = $_POST['action'];
 $actions = [
 
-    'GetNCVersion'               => fn() => getNCVersion(),
-    'IsUpdateRunning'            => fn() => !empty(glob(getStepPattern())) ? 1 : 0,
-    'ResetUpdateRunning'         => fn() => removeFile(glob(getStepPattern())[0]),
-    'GetDiskStatistics'          => fn() => getDiskStatisticsForHomeDir(),
-    'GetLatestBackupFile'        => fn() => getLatestBackupFile(),
-    'MakeBackupDatabase'         => fn() => makeBackupDatabase(),
-    'ListBackupFiles'            => fn() => listBackupFiles(),
-    'DeleteBackupFiles'          => fn() => deleteBackupFiles(),
-    'GetLogData'                 => fn() => getLogData(),
-    'GetSetupChecks'             => fn() => getSetupChecks(),
+    'GetNCVersion'               => getNCVersion(),
+    'IsUpdateRunning'            => !empty(glob(getStepPattern())) ? 1 : 0,
+    'ResetUpdateRunning'         => removeFile(glob(getStepPattern())[0]),
+    'GetDiskStatistics'          => getDiskStatisticsForHomeDir(),
+    'GetLatestBackupFile'        => getLatestBackupFile(),
+    'MakeBackupDatabase'         => makeBackupDatabase(),
+    'ListBackupFiles'            => listBackupFiles(),
+    'DeleteBackupFiles'          => deleteBackupFiles(),
+    'GetLogData'                 => getLogData(),
+    'GetSetupChecks'             => getSetupChecks(),
     'SkipRepairSetupChecks'      => fn() => $skipRepairSetupChecks,
     'DefinedActions'             => fn() => $definedActions,
-    'MimeTypeMigrationAvailable' => fn() => shell_exec("php --define apc.enable_cli=1 $occCommand maintenance:repair --include-expensive"),
-    'DatabaseHasMissingIndices'  => fn() => shell_exec("php --define apc.enable_cli=1 $occCommand db:add-missing-indices"),
-    'SecurityHeaders'            => fn() => repairSecurityHeaders(),
+    'MimeTypeMigrationAvailable' => repairMimeTypeMigrationAvailable(),
+    'DatabaseHasMissingIndices'  => repairDatabaseHasMissingIndices(),
+    'SecurityHeaders'            => repairSecurityHeaders(),
 ];
 
-if (isset($actions[$action])) {
-    returnValue($actions[$action]());
-} else {
-    http_response_code(400);
-    returnValue('error: action not defined');
-}    
+try {
+    if (!isset($actions[$action])) {
+        throw new Exception('action not defined', 400);
+    }
+
+    $result = $actions[$action]();
+    returnValue($result);
+
+} catch (Exception $e) {
+    $code = $e->getCode() ?: 500;
+    http_response_code($code);
+
+    returnValue('error: ' . $e->getMessage());
+}
 
 function getNCVersion(): string {
     global $versionFileName, $configFileName;
-    try {
-        // get  $OC_Build;
-        if (!file_exists($versionFileName)) {
-            throw new Exception('Version file not found');
-        };
-        require_once $versionFileName;
+    // get  $OC_Build;
+    if (!file_exists($versionFileName)) {
+        throw new Exception('Version file not found', 500);
+    };
+    require_once $versionFileName;
 
-        $CONFIG = getCONFIG();
-    
-        global $releaseChannel, $updaterServer;
-    
-        $updateURL = $updaterServer . '?version=' . str_replace('.', 'x', $CONFIG['version']) . 'xxx'
-                                                  . $releaseChannel . 'xx'
-                                                  . urlencode($OC_Build) . 'x'
-                                                  . PHP_MAJOR_VERSION . 'x'
-                                                  . PHP_MINOR_VERSION . 'x'
-                                                  . PHP_RELEASE_VERSION;
-    
-        $curl = curl_init();
-        curl_setopt_array($curl, [
-                CURLOPT_RETURNTRANSFER => 1,
-                CURLOPT_URL => $updateURL,
-                CURLOPT_USERAGENT => 'Nextcloud Updater',
-        ]);
-    
-        $response = curl_exec($curl);
-        if ($response === false) {
-            throw new Exception('Could not do request to updater server: ' . curl_error($curl));
-        }
-        curl_close($curl);
-    
-        // Response can be empty when no update is available
-        if ($response === '') {
-            throw new Exception('Current version: ' . $CONFIG['version'] . '. No update available.');
-        }
-    
-        $xml = simplexml_load_string($response);
-        if ($xml === false) {
-            throw new Exception('Could not parse updater server XML response');
-        }
-    
-        $response = get_object_vars($xml);
-        return 'Current version: ' . $CONFIG['version'] . '. Update available to ' . $response['version'];
-    } catch (Exception $e) {
-        return $e->getMessage();
+    $CONFIG = getCONFIG();
+
+    global $releaseChannel, $updaterServer;
+
+    $updateURL = $updaterServer . '?version=' . str_replace('.', 'x', $CONFIG['version']) . 'xxx'
+                                                . $releaseChannel . 'xx'
+                                                . urlencode($OC_Build) . 'x'
+                                                . PHP_MAJOR_VERSION . 'x'
+                                                . PHP_MINOR_VERSION . 'x'
+                                                . PHP_RELEASE_VERSION;
+
+    $curl = curl_init();
+    curl_setopt_array($curl, [
+            CURLOPT_RETURNTRANSFER => 1,
+            CURLOPT_URL => $updateURL,
+            CURLOPT_USERAGENT => 'Nextcloud Updater',
+    ]);
+
+    $response = curl_exec($curl);
+    if ($response === false) {
+        throw new Exception('Could not do request to updater server: ' . curl_error($curl), 500);
     }
+    curl_close($curl);
+
+    // Response can be empty when no update is available
+    if ($response === '') {
+        throw new Exception('Current version: ' . $CONFIG['version'] . '. No update available.', 500);
+    }
+
+    $xml = simplexml_load_string($response);
+    if ($xml === false) {
+        throw new Exception('Could not parse updater server XML response', 500);
+    }
+
+    $response = get_object_vars($xml);
+    return 'Current version: ' . $CONFIG['version'] . '. Update available to ' . $response['version'];
 }
 
 function returnValue($result)

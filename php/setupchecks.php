@@ -1,6 +1,8 @@
 <?php
 // 06/11/2025 : Content Type in header set to 'application/json' so all functions should return string or array, no JSON
 // 06/11/2025 : Require_once added
+// 26/11/2025 : Added functions repairMimeTypeMigrationAvailable and repairDatabaseHasMissingIndices
+// 26/11/2025 : Added exceptions
 
 require_once __DIR__ . '/config.php';
 
@@ -43,6 +45,32 @@ function getSetupChecks(): array | string {
         'logdata' => $obj,
     ]);
     return $result;
+}
+
+function repairMimeTypeMigrationAvailable(): string {
+    global $occCommand;
+    if (!is_file($occCommand)) {
+        throw new Exception('occ not found', 500);
+    }
+
+    if (!is_executable($occCommand)) {
+        throw new Exception('occ not executable', 500);
+    }
+    
+    return shell_exec("php --define apc.enable_cli=1 $occCommand maintenance:repair --include-expensive");
+}
+
+function repairDatabaseHasMissingIndices(): string {
+    global $occCommand;
+    if (!is_file($occCommand)) {
+        throw new Exception('occ not found', 500);
+    }
+
+    if (!is_executable($occCommand)) {
+        throw new Exception('occ not executable', 500);
+    }
+    
+    return shell_exec("php --define apc.enable_cli=1 $occCommand db:add-missing-indices");
 }
 
 function repairSecurityHeaders(): string {
@@ -97,20 +125,17 @@ REPLACESTRING;
                 $foundReplaceString = preg_match($replaceStringEscaped, $fileContents, $matches);
                 switch ($foundReplaceString) {
                     case 1:
-                        $result = 'Nothing done: Updated HSTS section found';
-                        break;
+                        throw new Exception('Nothing done: Updated HSTS section found', 500);
                     case 0:
-                        $result = 'Nothing done: No HSTS section found';
-                        break;
+                        throw new Exception('Nothing done: No HSTS section found', 500);
                     default:
-                        $result = 'Nothing done: Multiple updated HSTS sections found';
+                        throw new Exception('Nothing done: Multiple updated HSTS sections found', 500);
                 }
-                break;
             default:
-                $result = 'Nothing done: Multiple HSTS sections found';
+                throw new Exception('Nothing done: Multiple HSTS sections found', 500);
         }
     } else {
-        $result = 'Nothing done: .htAccess file not found';
+        throw new Exception('Nothing done: .htAccess file not found', 500);
     }
     return $result;
 }

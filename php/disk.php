@@ -1,5 +1,6 @@
 <?php
 // 06/11/2025 : Response code changed from 404 to 500
+// 26/11/2025 : Removed try/catch from function getDiskStatistics
 
 function getDiskStatisticsForHomeDir(): string {
     $homeDir = getHomeDir();
@@ -24,20 +25,15 @@ function getHomeDir(): string {
 
 function getDiskStatistics($path = '/', $precision = 2, $unit = 'auto'): string
 {
-    try {
-        $command = sprintf('du -sb %s 2>/dev/null', escapeshellarg($path));
-        exec($command, $output, $returnVar);
+    $command = sprintf('du -sb %s 2>/dev/null', escapeshellarg($path));
+    exec($command, $output, $returnVar);
 
-        if ($returnVar !== 0 || empty($output)) {
-            throw new Exception('Failed to run command');
-        }
-
-        $parts = preg_split('/\s+/', trim($output[0]));
-        $usedBytes = isset($parts[0]) ? (int)$parts[0] : 0;
-    } catch (Exception $e) {
-        http_response_code(500);
-        return $e->getMessage();
+    if ($returnVar !== 0 || empty($output)) {
+        throw new Exception('Failed to run command', 500);
     }
+
+    $parts = preg_split('/\s+/', trim($output[0]));
+    $usedBytes = isset($parts[0]) ? (int)$parts[0] : 0;
     
     return $usedBytes;
 }
