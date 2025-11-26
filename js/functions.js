@@ -1,6 +1,6 @@
 // v2 version check included
 // 06/11/2025 : Content Type in header set to 'application/json', so json.encode should not be called anymore
-
+// 06/11/2025 : Spaces removed or added
 
 const ncVersion = document.getElementById('ncVersion');
 const updateRunning = document.getElementById('updateRunning');
@@ -16,56 +16,125 @@ updateBackups();
 updateSetupChecksStart();
 updateLogNC();
 
-async function updateNCVersion() {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { action: 'GetNCVersion'},
-    success: function(returnValue) {
-      ncVersion.innerText = returnValue;
-    },
-    error: function(returnValue) {
-      alert('Version not available.\n' + returnValue);
+async function doFetch(action, data = {}) {
+  try {
+    const params = new URLSearchParams({ action, ...data });
+
+    const response = await fetch('php/main.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params
+    });
+
+    const contentType = response.headers.get("Content-Type")?.toLowerCase() || "";
+
+    if (!response.ok) {
+      console.log(action, '--> Error:', response.status);
+      throw {
+        ok: false,
+        status: response.status,
+        data: response.statusText || `HTTP error ${response.status}`,
+        raw: response
+      }
     }
-  })
+
+    if (contentType.includes("application/json")) {
+      result = await response.json();
+      console.log(action, '--> success (json):', result);
+    } else
+
+    if (contentType.includes("text/html")) {
+      result = await response.text();
+      console.log(action, '--> success (text):', result);
+    } else
+
+    if (response.status === 204) {
+      result = null;
+      console.log(action, '--> success (null):', result);
+    }
+
+    // Create error also when response code for example is 300 or 500 
+    if (!response.ok) {
+      console.log(action, '--> Error:', response.status);
+      throw {
+        ok: false,
+        status: response.status,
+        data: response.statusText || `HTTP error ${response.status}`,
+        raw: response
+      }
+    }
+
+    return {
+      ok: true,
+      status: response.status,
+      data: result,
+      raw: response
+    }
+
+  } catch (error) {
+    if (error instanceof TypeError) {
+      // fetch() netwerk error (bv CORS, offline, DNS)
+      throw {
+        ok: false,
+        status: 0,
+        data: error.message || "Network error",
+        raw: error
+      }
+    };
+
+    if (typeof error === "object" && error.ok === false) {
+      throw error; // our own uniform error
+    };
+    
+    // --- Unknown error ---
+    throw {
+      ok: false,
+      status: 0,
+      data: error?.message || "Unknown error",
+      raw: error
+    }; 
+  }
+}
+
+async function updateNCVersion() {
+  try {
+    const returnValue = await doFetch('GetNCVersion');
+    ncVersion.innerText = returnValue.data;
+
+  } catch (error) {
+      ncVersion.innerText = 'Version not available.\n' + error.data;
+      alert('Version not available.\n' + error.data);
+  }
 }
 
 async function updateUpdateRunning() {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { action: 'IsUpdateRunning'},
-    success: function(returnValue) {
-      if (returnValue) {
+  try {
+    const returnValue = await doFetch('IsUpdateRunning');
+      if (returnValue.data === 1) {
         updateRunning.innerText = 'Update running          ';
         const resetUpdateRunning = parent.document.createElement('button');
         resetUpdateRunning.innerText = 'Reset update';
         resetUpdateRunning.addEventListener('click', function(){ resetRunningUpdate() } );
-        updateRunning.appendChild(resetUpdateRunning);   
+        updateRunning.appendChild(resetUpdateRunning);
       }
       else {
         updateRunning.innerText = 'No update running';     
       }
-    },
-    error: function(returnValue) {
-      alert('Update information not available.\n' +returnValue);
-    }
-  })
+  } catch (error) {
+      updateRunning.innerText = 'Update information not available\n' + error.data;     
+      alert('Update information not available.\n' + error.data);
+  }
 }
 
 async function updateDiskStatistics() {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { action: 'GetDiskStatistics'},
-    success: function(returnValue) {
-        diskStatistics.innerText = (returnValue / 1000000).toLocaleString('nl-nl', {maximumFractionDigits: 1}) + ' MB';
-    },
-    error: function(returnValue) {
-      diskStatistics.innerText = 'No disk statistics available'
-      alert('Error while getting disk statistics.\n' + returnValue);
-    }
-  })
+  try {
+    const returnValue = await doFetch('GetDiskStatistics');
+    diskStatistics.innerText = (returnValue.data / 1000000).toLocaleString('nl-nl', {maximumFractionDigits: 1}) + ' MB';
+
+  } catch (error) {
+      diskStatistics.innerText = 'Error while getting disk statistics.\n' + error.data;
+      alert('Error while getting disk statistics.\n' + error.data);
+  }
 }
 
 function updateBackups() {
@@ -74,7 +143,7 @@ function updateBackups() {
 
   const latestBackup = parent.document.createElement('div');
   latestBackup.id = 'latestBackup';
-  latestBackup.innerText = 'Please wait again';
+  latestBackup.innerText = 'Please wait';
   latestBackup.addEventListener('click', makeBackup);
   backupButtonGroup.appendChild(latestBackup);
 
@@ -95,7 +164,7 @@ function updateBackups() {
   const deleteBackupsButton = parent.document.createElement('button');
   deleteBackupsButton.id = 'deleteBackups';
   deleteBackupsButton.innerText = 'Delete backups';
-  deleteBackupsButton.addEventListener('click', selectBackups);
+  deleteBackupsButton.addEventListener('click', selectAndDeleteBackups);
   backupButtonGroup.appendChild(deleteBackupsButton);
 
   backups.innerText = '';
@@ -105,59 +174,37 @@ function updateBackups() {
 }
 
 async function updateLastBackupTime() {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { action: 'GetLatestBackupFile'},
-    success: function(returnValue) {
+  try {
+    const returnValue = await doFetch('GetLatestBackupFile');;
+    const latestBackup = document.getElementById('latestBackup');
+    latestBackup.innerText = 'Last back-up date is ' + returnValue.data.last_modified;
+  } catch (error) {
       const latestBackup = document.getElementById('latestBackup');
-      latestBackup.innerText = 'Last back-up date is ' + returnValue.last_modified;
-    },
-    error: function(returnValue) {
-      latestBackup.innerText = 'No last back-up date known.';
-    }
-  })
+      latestBackup.innerText = 'No last back-up date known.\n' + error.data;
+      alert('No last back-up date known.\n' + error.data);
+  }
 }
 
 async function makeBackup() {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { action: 'MakeBackupDatabase'},
-    success: function(returnValue) {
-      alert('Back-up successfull');
-      updateLastBackupTime();
-    },
-    error: function(returnValue) {
-      alert('Back-up not successfull.\n' + returnValue);
-    }
-  })
+  try {
+    const returnValue = await doFetch('MakeBackupDatabase');
+    alert('Back-up successfull');
+    updateLastBackupTime();
+  } catch (error) {
+      alert('Back-up not successfull.\n' + error.data);
+  }
 }
 
 async function listBackups() {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { action: 'ListBackupFiles'},
-    success: function(returnValue) {
-      listBackupFilesInPopupWindows(returnValue);
-    },
-    error: function(returnValue) {
-      alert('No back-up files found.\n');
-    }
-  })
+  try {
+    const returnValue = await doFetch('ListBackupFiles');
+    listBackupFilesInPopupWindows(returnValue.data);
+  } catch (error) {
+      alert('No back-up files found.\n' + error.data);
+  }
 }
 
-function listBackupFilesInPopupWindows(files)
-{
-  if (files.length == 0) {
-    alert('No back-up files found');
-    return;
-  }
-  
-  const listBackupsButton = document.getElementById('listBackups');
-  listBackupsButton.disabled = true;
-
+function createModal() {
   const modal = document.createElement('div');
   Object.assign(modal.style, {
       position: 'fixed',
@@ -183,201 +230,170 @@ function listBackupFilesInPopupWindows(files)
       display: 'flex',
       flexDirection: 'column'
   });
-  
-  modal.tabIndex = -1;
 
-  const ul = document.createElement('ul');
-  files.forEach(f => {
-      const li = document.createElement('li');
-      li.textContent = f.name;
-      ul.appendChild(li);
-  });
-  content.appendChild(ul);
+  modal.tabIndex = -1;
 
   const okBtn = document.createElement('button');
   okBtn.textContent = 'OK';
   Object.assign(okBtn.style, {marginTop: '20px', padding: '6px 12px', alignSelf: 'flex-end'});
-  okBtn.addEventListener('click', () => {
-      document.body.removeChild(modal);
-      listBackupsButton.disabled = false;
-      listBackupsButton.focus();
-  });
-  content.appendChild(okBtn);
 
+  content.appendChild(okBtn);
   modal.appendChild(content);
 
-  window.addEventListener('keydown', e => {
-      if (e.key === 'Tab') {
-          e.preventDefault(); // voorkom tab buiten modal
-      } else if (e.key === 'Escape') {
-          document.body.removeChild(modal);
-          listBackupsButton.disabled = false;
-          listBackupsButton.focus();
-      }
+  window.addEventListener('keydown', function tabListener(e) {
+    if (e.key === 'Tab') {
+        e.preventDefault(); // // keep focus in modal
+    }
   });
+  return { modal, content, okBtn };
+}
+
+function listBackupFilesInPopupWindows(files)
+{
+  if (files.length == 0) {
+    alert('No back-up files found');
+    return;
+  }
+  
+  const listBackupsButton = document.getElementById('listBackups');
+  listBackupsButton.disabled = true;
+
+  const { modal, content, okBtn } = createModal();
+
+  const ul = document.createElement('ul');
+  files.forEach(f => {
+    const li = document.createElement('li');
+    li.textContent = f.name;
+    ul.appendChild(li);
+  });
+  content.insertBefore(ul, okBtn);
 
   document.body.appendChild(modal);
-}
 
-async function selectBackups() {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { action: 'ListBackupFiles'},
-    success: function(returnValue) {
-      filenamesWithHashes = returnValue;
-      selectBackupFilesInPopupWindows(filenamesWithHashes)
-        .then((selectedNames) => {
-          const filteredFilenamesWithHashes = filenamesWithHashes.filter(file => selectedNames.includes(file.name));
-          deleteBackups(filteredFilenamesWithHashes);
-          updateLastBackupTime();
-        });
-    },
-    error: function(returnValue) {
-      alert('No back-up files found.\n');
+  const cleanup = () => {
+    document.body.removeChild(modal);
+    listBackupsButton.disabled = false;
+    listBackupsButton.focus();
+    window.removeEventListener('keydown', escListener);
+  };
+  
+  const escListener = (e) => {
+    if (e.key === 'Escape') {
+      cleanup();
     }
-  })
-}
+  };
 
-function selectBackupFilesInPopupWindows(filenamesWithHashes)
-{
-  return new Promise((resolve) => {
-    if (filenamesWithHashes.length == 0) {
-      alert('No back-up files found');
-      return;
-    }
-    
-    const deleteBackupsButton = document.getElementById('deleteBackups');
-    deleteBackupsButton.disabled = true;
-
-    const modal = document.createElement('div');
-    Object.assign(modal.style, {
-        position: 'fixed',
-        top: 0, left: 0, width: '100%', height: '100%',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        zIndex: 1,
-    });
-
-    const content = document.createElement('div');
-    Object.assign(content.style, {
-        backgroundColor: '#fff',
-        padding: '20px',
-        borderRadius: '8px',
-        width: '50%',
-        maxWidth: '80%',
-        minWidth: '200px',
-        maxHeight: '80vh',
-        overflowY: 'auto',
-        resize: 'horizontal',
-        overflow: 'auto',
-        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-        display: 'flex',
-        flexDirection: 'column'
-    });
-    
-    modal.tabIndex = -1;
-
-    const form = document.createElement('form');
-    filenamesWithHashes.forEach((fileWithHash, idx) => {
-        const label = document.createElement('label');
-        label.style.display = 'block';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = fileWithHash.name;
-        cb.id = "checkbox_${idx}";
-        label.appendChild(cb);
-        label.appendChild(document.createTextNode(' ' + fileWithHash.name));
-        form.appendChild(label);
-    });
-    content.appendChild(form);
-
-    const okBtn = document.createElement('button');
-    okBtn.textContent = 'OK';
-    Object.assign(okBtn.style, {marginTop: '20px', padding: '6px 12px', alignSelf: 'flex-end'});
-    okBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const checked = Array.from(form.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
-        document.body.removeChild(modal);
-        deleteBackupsButton.disabled = false;
-        deleteBackupsButton.focus();
-        resolve(JSON.stringify(checked));
-    });
-    content.appendChild(okBtn);
-
-    modal.appendChild(content);
-
-    window.addEventListener('keydown', e => {
-        if (e.key === 'Tab') {
-            e.preventDefault(); // voorkom tab buiten modal
-        } else if (e.key === 'Escape') {
-            document.body.removeChild(modal);
-            deleteBackupsButton.disabled = false;
-            deleteBackupsButton.focus();
-        }
-    });
-
-    document.body.appendChild(modal);
+  okBtn.addEventListener('click', () => {
+    cleanup();
   });
+
+  window.addEventListener('keydown', escListener);
+}
+
+async function selectAndDeleteBackups() {
+  try {
+    const returnValue = await doFetch('ListBackupFiles');
+    const filenamesWithHashes = returnValue.data;
+
+    const selectedNames = await selectBackupFilesInPopupWindows(filenamesWithHashes);
+
+    const filteredFilenamesWithHashes = await filenamesWithHashes.filter(file => selectedNames.includes(file.name));
+
+    if (filteredFilenamesWithHashes.length == 0) {
+      alert('No back-up files deleted');
+    } else {
+      deleteBackups(filteredFilenamesWithHashes);
+      updateLastBackupTime();
+    }
+  } catch (error) {
+      alert('No back-up files found.\n' + error.data);
+  }
+}
+
+async function selectBackupFilesInPopupWindows(filenamesWithHashes)
+{
+  if (filenamesWithHashes.length == 0) {
+    alert('No back-up files found');
+    return;
+  }
+  
+  const deleteBackupsButton = document.getElementById('deleteBackups');
+  deleteBackupsButton.disabled = true;
+
+  const { modal, content, okBtn } = createModal();
+
+  const form = document.createElement('form');
+  filenamesWithHashes.forEach((fileWithHash, idx) => {
+      const label = document.createElement('label');
+      label.style.display = 'block';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = fileWithHash.name;
+      cb.id = 'checkbox_${idx}';
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + fileWithHash.name));
+      form.appendChild(label);
+  });
+  content.insertBefore(form, okBtn);
+
+  document.body.appendChild(modal);
+  
+  const result = await new Promise((resolve) => {
+    const cleanup = (result = '') => {
+      document.body.removeChild(modal);
+      deleteBackupsButton.disabled = false;
+      deleteBackupsButton.focus();
+      window.removeEventListener('keydown', escListener);
+      resolve(result);
+    };
+
+    okBtn.addEventListener('click', (e) => {
+        e.preventDefault(); // // keep focus in modal
+        const checked = Array.from(form.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+        cleanup(JSON.stringify(checked));
+    });
+
+    const escListener = (e) => {
+      if (e.key === 'Escape') {
+        cleanup();
+      }
+    };
+    window.addEventListener('keydown', escListener);
+  });
+  return result;
 }
 
 async function deleteBackups(filteredFilenamesWithHashes) {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { 
-      action: 'DeleteBackupFiles' ,
-      FilenamesWithHashes: JSON.stringify(filteredFilenamesWithHashes)
-    },
-    datatype: 'json',
-    success: function(returnValue) {
-      alert(returnValue);
-    },
-    error: function(returnValue) {
-      alert('No back-up files found.\n' . returnValue);
-    }
-  })
+  try {
+      const returnValue = await doFetch('DeleteBackupFiles', {FilenamesWithHashes: JSON.stringify(filteredFilenamesWithHashes)});
+      alert('Selected back-up files successfully deleted.');
+    } catch (error) {
+    alert('Error deletion back-up files.\n' + error.data);
+  }
 }
 
 async function resetRunningUpdate(id) {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { action: 'ResetUpdateRunning'},
-    success: function(returnValue) {
-      alert ('Reset successfull\n');
-      updateRunning.innerText = 'No update running';     
-    },
-    error: function(returnValue) {
-      alert('Repair not successfull.\n' + returnValue);
-    }
-  })
-}
-
-
-function ajaxPost(action) {
-  return new Promise((resolve, reject) => {
-    $.ajax({
-      type: 'POST',
-      url: 'php/main.php',
-      data: { action },
-      success: data => resolve(data),
-      error: err => reject(err)
-    });
-  });
+  try {
+    const returnValue = await doFetch('ResetUpdateRunning');
+    alert ('Reset successfull\n');
+    updateRunning.innerText = 'No update running';     
+  } catch (error) {
+    alert('Error while resetting running update.\n' + error.data);
+  }
 }
 
 async function updateSetupChecksStart() {
   try {
-    const [knownSetupChecks, skipRepairSetupChecks, setupChecks] = await Promise.all([
-      ajaxPost('DefinedActions'),
-      ajaxPost('SkipRepairSetupChecks'),
-      ajaxPost('GetSetupChecks')
+    const [setupChecks, knownSetupChecks, skipRepairSetupChecks] = await Promise.all([
+      doFetch('GetSetupChecks'),
+      doFetch('DefinedActions'),
+      doFetch('SkipRepairSetupChecks')
     ]);
+    processSetupChecks(setupChecks.data, knownSetupChecks.data, skipRepairSetupChecks.data);
 
-    processSetupChecks(setupChecks, knownSetupChecks, skipRepairSetupChecks);
-  } catch (err) {
-    alert('Repair not successful.\n' + err.responseText);
+  } catch (error) {
+    const errorText = await error.data();
+    alert('Repair not successful.\n' + errorText);
   }
 }
 
@@ -409,10 +425,11 @@ function processSetupChecks(mySetupChecks, knownSetupChecks, skipRepairSetupChec
     
     if (!skipRepairSetupCheck) {
       if (isRepairDefined) {
-        const setupCheckButton = parent.document.createElement('button');
-        setupCheckButton.innerText = 'repair';
-        setupCheckButton.addEventListener('click', function(){ startPhpFunction(id) } );
-        setupCheckName.appendChild(setupCheckButton);
+        const setupCheckRepairButton = parent.document.createElement('button');
+        setupCheckRepairButton.id = `buttonRepair${id}`;
+        setupCheckRepairButton.innerText = 'repair';
+        setupCheckRepairButton.addEventListener('click', function(){ startPhpFunction(id) } );
+        setupCheckName.appendChild(setupCheckRepairButton);
       }
 
       const setupCheckDescription = parent.document.createElement('p');
@@ -424,31 +441,31 @@ function processSetupChecks(mySetupChecks, knownSetupChecks, skipRepairSetupChec
       const severitySection = mySetupChecks[i].severity == 'warning' ? warningsSection : infoSection;
       severitySection.appendChild(setupCheckSection);
 
-      addToLogData(mySetupChecks[mySetupChecks.length - 1]); 
+      addToLogData(JSON.stringify(mySetupChecks[mySetupChecks.length - 1], '##', 2)); 
     }     
   }
 }
 
 async function startPhpFunction(id) {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { action: id},
-    success: function(returnValue) {
-      alert ('Repair successfull\n')
-      addToLogData(returnValue);
-      const setupCheckSection = document.getElementById(id);
-      setupCheckSection.style.textDecoration = "line-through";
-    },
-    error: function(returnValue) {
-      alert('Repair not successfull.\n' + returnValue);
-    }
-  })
+  try {
+    const setupCheckRepairButton = document.getElementById(`buttonRepair${id}`);
+    setupCheckRepairButton.disabled = true;
+
+    const returnValue = await doFetch(id);
+
+    alert ('Repair successfull\n')
+    addToLogData(returnValue.data);
+
+    const setupCheckSection = document.getElementById(id);
+    setupCheckSection.style.textDecoration = "line-through";
+  } catch (error) {
+    alert('Repair not successfull.\n' + error.data);
+  }
 }
 
 function addToLogData(logText) {
   logData.innerText = logData.innerText == '-' ?  '' : '-----------\n' + logData.innerText;
-  logData.innerText = JSON.stringify(logText, '##', 2) + logData.innerText;
+  logData.innerText = logText + '\n' + logData.innerText;
 }
 
 function updateLogNC() {
@@ -548,19 +565,14 @@ function buildLogNCTable() {
 }
 
 async function loadNCLogs() {
-  $.ajax({
-    type: 'POST',
-    url: 'php/main.php',
-    data: { action: 'GetLogData'},
-    success: function(returnValue) {
-        // Log level must be saved as an integer
-        logs = returnValue.map(log => ({ ...log, level: parseInt(log.level) }));
-        renderNCLogs();
-    },
-    error: function(returnValue, status, error) {
-        console.error('Error retrieving the logs:', status, error);
-    }
-  })
+  try {
+    const returnValue = await doFetch('GetLogData');
+    // Log level must be saved as an integer
+    logs = await returnValue.data.map(log => ({ ...log, level: parseInt(log.level) }));
+    renderNCLogs();
+  } catch (error) {
+    alert('Error retrieving the logs.\n' + error.data);
+  }
 }
 
 function renderNCLogs() {
@@ -573,7 +585,7 @@ function renderNCLogs() {
       .map(checkbox => parseInt(checkbox.value));
 
   const now = new Date();
-  const cutoff = new Date(now.getTime() - days*24*60*60*1000);
+   const cutoff = new Date(now.getTime() - days*24*60*60*1000);
 
   const tbody = document.querySelector('#logTable tbody');
   tbody.innerHTML = '';
