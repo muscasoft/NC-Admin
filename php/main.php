@@ -9,6 +9,7 @@
 // 07/11/2025 : Replaced returnAsJson by returnValue to prevent quotes around strings
 // 26/11/2025 : Added header info in returnValue
 // 26/11/2025 : Error solved in IsUpdateRunning
+// 26/11/2025 : Long switch statement replaced with  associative array mapping action names to corresponding handler functions
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/backup.php';
@@ -19,58 +20,30 @@ require_once __DIR__ . '/logs.php';
 require_once __DIR__ . '/setupchecks.php';
 
 $action = $_POST['action'];
-switch ($action) {
-    case 'GetNCVersion':
-        returnValue(getNCVersion());
-        break;
-    case 'IsUpdateRunning':
-        returnValue(!empty(glob(getStepPattern())) ? 1 : 0);
-        break;
-    case 'ResetUpdateRunning':
-        returnValue(removeFile(glob(getStepPattern())[0]));
-        break;
-    case 'GetDiskStatistics':
-        returnValue(getDiskStatisticsForHomeDir());
-        break;
-    case 'GetLatestBackupFile':
-        returnValue(getLatestBackupFile());
-        break;
-    case 'MakeBackupDatabase':
-        returnValue(makeBackupDatabase());
-        break;
-    case 'ListBackupFiles':
-        returnValue(listBackupFiles());
-        break;
-    case 'DeleteBackupFiles':
-        returnValue(deleteBackupFiles());
-        break;
-    case 'GetLogData':
-        returnValue(getLogData());
-        break;        
-    case 'GetSetupChecks':
-        returnValue(getSetupChecks());
-        break;
-    case 'SkipRepairSetupChecks':
-        returnValue($skipRepairSetupChecks);
-        break;
-    case 'DefinedActions':
-        returnValue($definedActions);
-        break;
-    case 'MimeTypeMigrationAvailable':
-        $result = shell_exec("php --define apc.enable_cli=1 $occCommand maintenance:repair --include-expensive");
-        returnValue($result);
-        break;
-    case 'DatabaseHasMissingIndices':
-        $result = shell_exec("php --define apc.enable_cli=1 $occCommand db:add-missing-indices");
-        returnValue($result);
-        break;
-    case 'SecurityHeaders':
-        returnValue(repairSecurityHeaders());
-        break;
-    default:
-        http_response_code(400);
-        returnValue('error: action not defined');
-        break;
+$actions = [
+
+    'GetNCVersion'               => fn() => getNCVersion(),
+    'IsUpdateRunning'            => fn() => !empty(glob(getStepPattern())) ? 1 : 0,
+    'ResetUpdateRunning'         => fn() => removeFile(glob(getStepPattern())[0]),
+    'GetDiskStatistics'          => fn() => getDiskStatisticsForHomeDir(),
+    'GetLatestBackupFile'        => fn() => getLatestBackupFile(),
+    'MakeBackupDatabase'         => fn() => makeBackupDatabase(),
+    'ListBackupFiles'            => fn() => listBackupFiles(),
+    'DeleteBackupFiles'          => fn() => deleteBackupFiles(),
+    'GetLogData'                 => fn() => getLogData(),
+    'GetSetupChecks'             => fn() => getSetupChecks(),
+    'SkipRepairSetupChecks'      => fn() => $skipRepairSetupChecks,
+    'DefinedActions'             => fn() => $definedActions,
+    'MimeTypeMigrationAvailable' => fn() => shell_exec("php --define apc.enable_cli=1 $occCommand maintenance:repair --include-expensive"),
+    'DatabaseHasMissingIndices'  => fn() => shell_exec("php --define apc.enable_cli=1 $occCommand db:add-missing-indices"),
+    'SecurityHeaders'            => fn() => repairSecurityHeaders(),
+];
+
+if (isset($actions[$action])) {
+    returnValue($actions[$action]());
+} else {
+    http_response_code(400);
+    returnValue('error: action not defined');
 }    
 
 function getNCVersion(): string {
