@@ -14,6 +14,8 @@
 // 26/11/2025 : Try/catch to catch errors
 // 28/11/2025 : Correct bug in callable array
 // 28/11/2025 : Function getNCVersion throws no error if no update is available
+// 28/11/2025 : New functions isUpdateRunning and resetUpdateRunning
+// 28/11/2025 : Callable calls to isUpdateRunning, resetUpdateRunning,  getSkipRepairSetupChecks and getDefinedActions
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/backup.php';
@@ -29,8 +31,8 @@ $action = $_POST['action'];
 $actions = [
 
     'GetNCVersion'               => 'getNCVersion',
-    'IsUpdateRunning'            => fn() => !empty(glob(getStepPattern())) ? 1 : 0,
-    'ResetUpdateRunning'         => fn() => removeFile(glob(getStepPattern())[0]),
+    'IsUpdateRunning'            => 'isUpdateRunning',
+    'ResetUpdateRunning'         => 'resetUpdateRunning',
     'GetDiskStatistics'          => 'getDiskStatisticsForHomeDir',
     'GetLatestBackupFile'        => 'getLatestBackupFile',
     'MakeBackupDatabase'         => 'makeBackupDatabase',
@@ -38,8 +40,8 @@ $actions = [
     'DeleteBackupFiles'          => 'deleteBackupFiles',
     'GetLogData'                 => 'getLogData',
     'GetSetupChecks'             => 'getSetupChecks',
-    'SkipRepairSetupChecks'      => fn() => $skipRepairSetupChecks,
-    'DefinedActions'             => fn() => $definedActions,
+    'SkipRepairSetupChecks'      => 'getSkipRepairSetupChecks',
+    'DefinedActions'             => 'getDefinedActions',
     'MimeTypeMigrationAvailable' => 'repairMimeTypeMigrationAvailable',
     'DatabaseHasMissingIndices'  => 'repairDatabaseHasMissingIndices',
     'SecurityHeaders'            => 'repairSecurityHeaders',
@@ -105,6 +107,16 @@ function getNCVersion(): string {
     $response = get_object_vars($xml);
     return 'Current version: ' . $CONFIG['version'] . '. Update available to ' . $response['version'];
 }
+
+function isUpdateRunning(): int {
+    return !empty(glob(getStepPattern())) ? 1 : 0;
+};
+
+
+
+function resetUpdateRunning(): string {
+    return removeFile(glob(getStepPattern())[0]);
+};
 
 function returnValue($result)
 {

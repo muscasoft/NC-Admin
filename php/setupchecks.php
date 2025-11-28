@@ -3,6 +3,7 @@
 // 06/11/2025 : Require_once added
 // 26/11/2025 : Added functions repairMimeTypeMigrationAvailable and repairDatabaseHasMissingIndices
 // 26/11/2025 : Added exceptions
+// 28/11/2025 : New functions getSkipRepairSetupChecks and getDefinedActions
 
 require_once __DIR__ . '/config.php';
 
@@ -10,6 +11,7 @@ $skipRepairSetupChecks = [
     'BruteForceThrottler',
     'ForwardedForHeaders',
 ];
+
 $definedActions = [
     'LogErrors' => false,
     'BruteForceThrottler' => false,
@@ -18,6 +20,16 @@ $definedActions = [
     'DatabaseHasMissingIndices' => true,
     'SecurityHeaders' => true,
 ];
+
+function getSkipRepairSetupChecks(): array {
+    global $skipRepairSetupChecks;
+    return $skipRepairSetupChecks;
+}
+
+function getDefinedActions(): array {
+    global $definedActions;
+    return $definedActions;
+}
 
 function getSetupChecks(): array | string {
     global $occCommand;
