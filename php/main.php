@@ -11,7 +11,9 @@
 // 26/11/2025 : Error solved in IsUpdateRunning
 // 26/11/2025 : Long switch statement replaced with  associative array mapping action names to corresponding handler functions
 // 26/11/2025 : Call to new functions repairMimeTypeMigrationAvailable and repairDatabaseHasMissingIndices
-// 26/11/2025 : try/catch to catch errors
+// 26/11/2025 : Try/catch to catch errors
+// 28/11/2025 : Correct bug in callable array
+// 28/11/2025 : Function getNCVersion throws no error if no update is available
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/backup.php';
@@ -26,21 +28,21 @@ global $skipRepairSetupChecks, $definedActions;
 $action = $_POST['action'];
 $actions = [
 
-    'GetNCVersion'               => getNCVersion(),
-    'IsUpdateRunning'            => !empty(glob(getStepPattern())) ? 1 : 0,
-    'ResetUpdateRunning'         => removeFile(glob(getStepPattern())[0]),
-    'GetDiskStatistics'          => getDiskStatisticsForHomeDir(),
-    'GetLatestBackupFile'        => getLatestBackupFile(),
-    'MakeBackupDatabase'         => makeBackupDatabase(),
-    'ListBackupFiles'            => listBackupFiles(),
-    'DeleteBackupFiles'          => deleteBackupFiles(),
-    'GetLogData'                 => getLogData(),
-    'GetSetupChecks'             => getSetupChecks(),
+    'GetNCVersion'               => 'getNCVersion',
+    'IsUpdateRunning'            => fn() => !empty(glob(getStepPattern())) ? 1 : 0,
+    'ResetUpdateRunning'         => fn() => removeFile(glob(getStepPattern())[0]),
+    'GetDiskStatistics'          => 'getDiskStatisticsForHomeDir',
+    'GetLatestBackupFile'        => 'getLatestBackupFile',
+    'MakeBackupDatabase'         => 'makeBackupDatabase',
+    'ListBackupFiles'            => 'listBackupFiles',
+    'DeleteBackupFiles'          => 'deleteBackupFiles',
+    'GetLogData'                 => 'getLogData',
+    'GetSetupChecks'             => 'getSetupChecks',
     'SkipRepairSetupChecks'      => fn() => $skipRepairSetupChecks,
     'DefinedActions'             => fn() => $definedActions,
-    'MimeTypeMigrationAvailable' => repairMimeTypeMigrationAvailable(),
-    'DatabaseHasMissingIndices'  => repairDatabaseHasMissingIndices(),
-    'SecurityHeaders'            => repairSecurityHeaders(),
+    'MimeTypeMigrationAvailable' => 'repairMimeTypeMigrationAvailable',
+    'DatabaseHasMissingIndices'  => 'repairDatabaseHasMissingIndices',
+    'SecurityHeaders'            => 'repairSecurityHeaders',
 ];
 
 try {
@@ -48,7 +50,7 @@ try {
         throw new Exception('action not defined', 400);
     }
 
-    $result = $actions[$action]();
+    $result = call_user_func($actions[$action]);
     returnValue($result);
 
 } catch (Exception $e) {
@@ -92,7 +94,7 @@ function getNCVersion(): string {
 
     // Response can be empty when no update is available
     if ($response === '') {
-        throw new Exception('Current version: ' . $CONFIG['version'] . '. No update available.', 500);
+        return 'Current version: ' . $CONFIG['version'] . '. No update available.';
     }
 
     $xml = simplexml_load_string($response);
