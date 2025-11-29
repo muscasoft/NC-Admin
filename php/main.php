@@ -16,6 +16,7 @@
 // 28/11/2025 : Function getNCVersion throws no error if no update is available
 // 28/11/2025 : New functions isUpdateRunning and resetUpdateRunning
 // 28/11/2025 : Callable calls to isUpdateRunning, resetUpdateRunning,  getSkipRepairSetupChecks and getDefinedActions
+// 29/11/2025 : Functions moved from main.php to updates.php and getNCVersion's return value changed from string into array
 
 //require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/backup.php';
