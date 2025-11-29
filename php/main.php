@@ -18,13 +18,15 @@
 // 28/11/2025 : Callable calls to isUpdateRunning, resetUpdateRunning,  getSkipRepairSetupChecks and getDefinedActions
 // 29/11/2025 : Functions moved from main.php to updates.php and getNCVersion's return value changed from string into array
 // 29/11/2025 : Moved functions getCONFIG and getStepPattern from general.php to nextcloud.php
+// 29/11/2025 : Moved php to lib
 
-require_once __DIR__ . '/backup.php';
-require_once __DIR__ . '/disk.php';
-require_once __DIR__ . '/files.php';
-require_once __DIR__ . '/logs.php';
-require_once __DIR__ . '/nextcloud.php';
-require_once __DIR__ . '/setupchecks.php';
+require_once __DIR__ . '/lib/backup.php';
+require_once __DIR__ . '/lib/disk.php';
+require_once __DIR__ . '/lib/files.php';
+require_once __DIR__ . '/lib/logs.php';
+require_once __DIR__ . '/lib/nextcloud.php';
+require_once __DIR__ . '/lib/setupchecks.php';
+require_once __DIR__ . '/lib/updates.php';
 
 global $skipRepairSetupChecks, $definedActions;
 

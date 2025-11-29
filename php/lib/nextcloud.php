@@ -1,5 +1,6 @@
 <?php
 // 29/11/2025 : Moved functions getCONFIG and getStepPattern from general.php to nextcloud.php
+// 29/11/2025 : Moved php to lib
 
 require_once __DIR__ . '/config.php';
 

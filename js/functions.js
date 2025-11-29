@@ -6,6 +6,9 @@
 // 26/11/2025 : Centralize code for modal windows in createModal and disable/enable buttons to prevent double clicking
 // 26/11/2025 : Move JSON.stringify from addToLogData to calling codes
 // 29/11/2025 : getNCVersion's return value changed from string into array
+// 29/11/2025 : Function doFetch returns returnValue in error.data
+// 29/11/2025 : Minor bug corrected in updateSetupChecksStart
+// 20/11/2025 : Function updateLastBackupTime shows no alert if no back-up files are found
 
 const ncVersion = document.getElementById('ncVersion');
 const updateRunning = document.getElementById('updateRunning');
@@ -33,16 +36,6 @@ async function doFetch(action, data = {}) {
 
     const contentType = response.headers.get("Content-Type")?.toLowerCase() || "";
 
-    if (!response.ok) {
-      console.log(action, '--> Error:', response.status);
-      throw {
-        ok: false,
-        status: response.status,
-        data: response.statusText || `HTTP error ${response.status}`,
-        raw: response
-      }
-    }
-
     if (contentType.includes("application/json")) {
       result = await response.json();
       console.log(action, '--> success (json):', result);
@@ -58,13 +51,12 @@ async function doFetch(action, data = {}) {
       console.log(action, '--> success (null):', result);
     }
 
-    // Create error also when response code for example is 300 or 500 
     if (!response.ok) {
       console.log(action, '--> Error:', response.status);
       throw {
         ok: false,
         status: response.status,
-        data: response.statusText || `HTTP error ${response.status}`,
+        data: result,
         raw: response
       }
     }
@@ -188,8 +180,7 @@ async function updateLastBackupTime() {
     latestBackup.innerText = 'Last back-up date is ' + returnValue.data.last_modified;
   } catch (error) {
       const latestBackup = document.getElementById('latestBackup');
-      latestBackup.innerText = 'No last back-up date known.\n' + error.data;
-      alert('No last back-up date known.\n' + error.data);
+      latestBackup.innerText = 'No last back-up date known.\n' + error.data.replace('error: ', '');
   }
 }
 
@@ -400,7 +391,7 @@ async function updateSetupChecksStart() {
     processSetupChecks(setupChecks.data, knownSetupChecks.data, skipRepairSetupChecks.data);
 
   } catch (error) {
-    const errorText = await error.data();
+    const errorText = await error.data;
     alert('Repair not successful.\n' + errorText);
   }
 }
