@@ -5,6 +5,7 @@
 // 26/11/2025 : Minor changes in names and texts
 // 26/11/2025 : Centralize code for modal windows in createModal and disable/enable buttons to prevent double clicking
 // 26/11/2025 : Move JSON.stringify from addToLogData to calling codes
+// 29/11/2025 : getNCVersion's return value changed from string into array
 
 const ncVersion = document.getElementById('ncVersion');
 const updateRunning = document.getElementById('updateRunning');
@@ -103,8 +104,11 @@ async function doFetch(action, data = {}) {
 async function updateNCVersion() {
   try {
     const returnValue = await doFetch('GetNCVersion');
-    ncVersion.innerText = returnValue.data;
-
+    if (returnValue.data.latest_version) {
+      ncVersion.innerText = `Current version: ${returnValue.data.current_version}. Update available to ${returnValue.data.latest_version}.`;
+    } else {
+      ncVersion.innerText = `Current version: ${returnValue.data.current_version}. No update available.`;
+    }
   } catch (error) {
       ncVersion.innerText = 'Version not available.\n' + error.data;
       alert('Version not available.\n' + error.data);
