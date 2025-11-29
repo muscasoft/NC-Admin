@@ -2,7 +2,6 @@
 // 29/11/2025 : Moved functions getCONFIG and getStepPattern from general.php to nextcloud.php
 
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/general.php';
 
 function getCONFIG(): array {
     static $CONFIG = null;

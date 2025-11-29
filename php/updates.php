@@ -2,7 +2,7 @@
 // 29/11/2025 : Functions moved from main.php to updates.php and getNCVersion's return value changed from string into array
 
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/general.php';
+require_once __DIR__ . '/nextcloud.php';
 
 function getNCVersion(): array {
     global $versionFileName, $configFileName;
