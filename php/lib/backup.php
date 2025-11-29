@@ -4,8 +4,9 @@
 // 06/11/2025 : Response code changed from 404 to 500
 // 26/11/2025 : Removed try/catch from all functions
 // 29/11/2025 : Moved php to lib
+// 29/11/2025 : Moved config.php back to php
 
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/general.php';
 
 function getLatestBackupFile(): array | string

@@ -5,8 +5,9 @@
 // 26/11/2025 : Added exceptions
 // 28/11/2025 : New functions getSkipRepairSetupChecks and getDefinedActions
 // 29/11/2025 : Moved php to lib
+// 29/11/2025 : Moved config.php back to php
 
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/../config.php';
 
 $skipRepairSetupChecks = [
     'BruteForceThrottler',
