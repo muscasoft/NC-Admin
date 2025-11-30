@@ -19,10 +19,11 @@
 // 29/11/2025 : Functions moved from main.php to updates.php and getNCVersion's return value changed from string into array
 // 29/11/2025 : Moved functions getCONFIG and getStepPattern from general.php to nextcloud.php
 // 29/11/2025 : Moved php to lib
+// 30/11/2025 : Added logger
 
 require_once __DIR__ . '/lib/backup.php';
+require_once __DIR__ . '/lib/bootstrap.php';
 require_once __DIR__ . '/lib/disk.php';
-require_once __DIR__ . '/lib/files.php';
 require_once __DIR__ . '/lib/logs.php';
 require_once __DIR__ . '/lib/nextcloud.php';
 require_once __DIR__ . '/lib/setupchecks.php';
@@ -31,6 +32,7 @@ require_once __DIR__ . '/lib/updates.php';
 global $skipRepairSetupChecks, $definedActions;
 
 $action = $_POST['action'];
+$logger->info("$action started");
 $actions = [
 
     'GetNCVersion'               => 'getNCVersion',
@@ -56,9 +58,11 @@ try {
     }
 
     $result = call_user_func($actions[$action]);
+    $logger->info("$action ended successfully");
     returnValue($result);
 
 } catch (Exception $e) {
+    $logger->warning("$action with error: {$e->getMessage()}");
     $code = $e->getCode() ?: 500;
     http_response_code($code);
 

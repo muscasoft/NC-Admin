@@ -6,8 +6,10 @@
 // 28/11/2025 : New functions getSkipRepairSetupChecks and getDefinedActions
 // 29/11/2025 : Moved php to lib
 // 29/11/2025 : Moved config.php back to php
+// 30/11/2025 : Added logger
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/bootstrap.php';
 
 $skipRepairSetupChecks = [
     'BruteForceThrottler',
@@ -24,17 +26,20 @@ $definedActions = [
 ];
 
 function getSkipRepairSetupChecks(): array {
-    global $skipRepairSetupChecks;
+    global $skipRepairSetupChecks, $logger;
+    $logger->debug("getSkipRepairSetupChecks started/ ended succesfully");
     return $skipRepairSetupChecks;
 }
 
 function getDefinedActions(): array {
-    global $definedActions;
+    global $definedActions, $logger;
+    $logger->debug("getDefinedActions started/ ended succesfully");
     return $definedActions;
 }
 
 function getSetupChecks(): array | string {
-    global $occCommand;
+    global $occCommand, $logger;
+    $logger->debug("getSetupChecks started");
     $output = shell_exec("php --define apc.enable_cli=1 $occCommand setupchecks --output=json_pretty");
     $obj = json_decode($output);
     $result= [];
@@ -58,36 +63,52 @@ function getSetupChecks(): array | string {
     array_push($result, (object)[
         'logdata' => $obj,
     ]);
+    $logger->debug("getSetupChecks ended successfully");
     return $result;
 }
 
 function repairMimeTypeMigrationAvailable(): string {
-    global $occCommand;
+    global $occCommand, $logger;
+    $logger->debug("repairMimeTypeMigrationAvailable started");
     if (!is_file($occCommand)) {
-        throw new Exception('occ not found', 500);
+        $errorMessage = 'occ not found';
+        $logger->warning("repairMimeTypeMigrationAvailable aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
 
     if (!is_executable($occCommand)) {
-        throw new Exception('occ not executable', 500);
+        $errorMessage = 'occ not executable';
+        $logger->warning("repairMimeTypeMigrationAvailable aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
     
+    $logger->debug("repairMimeTypeMigrationAvailable ended successfully");
     return shell_exec("php --define apc.enable_cli=1 $occCommand maintenance:repair --include-expensive");
 }
 
 function repairDatabaseHasMissingIndices(): string {
-    global $occCommand;
+    global $occCommand, $logger;
+    $logger->debug("repairDatabaseHasMissingIndices started");
     if (!is_file($occCommand)) {
-        throw new Exception('occ not found', 500);
+        $errorMessage = 'occ not found';
+        $logger->warning("repairDatabaseHasMissingIndices aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
 
     if (!is_executable($occCommand)) {
-        throw new Exception('occ not executable', 500);
+        $errorMessage = 'occ not executable';
+        $logger->warning("repairDatabaseHasMissingIndices aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
     
-    return shell_exec("php --define apc.enable_cli=1 $occCommand db:add-missing-indices");
+    $result = shell_exec("php --define apc.enable_cli=1 $occCommand db:add-missing-indices");
+    $logger->debug("repairDatabaseHasMissingIndices ended successfully");
+    return $result;
 }
 
 function repairSecurityHeaders(): string {
+    global $logger;
+    $logger->debug("repairSecurityHeaders started");
     $searchString = <<<SEARCHSTRING
 #### DO NOT CHANGE ANYTHING ABOVE THIS LINE ####
 
@@ -139,17 +160,28 @@ REPLACESTRING;
                 $foundReplaceString = preg_match($replaceStringEscaped, $fileContents, $matches);
                 switch ($foundReplaceString) {
                     case 1:
-                        throw new Exception('Nothing done: Updated HSTS section found', 500);
+                        $errorMessage = 'Nothing done: Updated HSTS section found';
+                        $logger->warning("repairSecurityHeaders aborted with error: $errorMessage}");
+                        throw new Exception($errorMessage, 500);
                     case 0:
-                        throw new Exception('Nothing done: No HSTS section found', 500);
+                        $errorMessage = 'Nothing done: No HSTS section found';
+                        $logger->warning("repairSecurityHeaders aborted with error: $errorMessage}");
+                        throw new Exception($errorMessage, 500);
                     default:
-                        throw new Exception('Nothing done: Multiple updated HSTS sections found', 500);
+                        $errorMessage = 'Nothing done: Multiple updated HSTS sections found';
+                        $logger->warning("repairSecurityHeaders aborted with error: $errorMessage}");
+                        throw new Exception($errorMessage, 500);
                 }
             default:
-                throw new Exception('Nothing done: Multiple HSTS sections found', 500);
+                $errorMessage = 'Nothing done: Multiple updated HSTS sections found';
+                $logger->warning("repairSecurityHeaders aborted with error: $errorMessage}");
+                throw new Exception($errorMessage, 500);
         }
     } else {
-        throw new Exception('Nothing done: .htAccess file not found', 500);
+        $errorMessage = 'Nothing done: .htAccess file not found';
+        $logger->warning("repairSecurityHeaders aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
+    $logger->debug("repairSecurityHeaders ended successfully");
     return $result;
 }

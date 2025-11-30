@@ -5,22 +5,30 @@
 // 26/11/2025 : Removed try/catch from all functions
 // 29/11/2025 : Moved php to lib
 // 29/11/2025 : Moved config.php back to php
+// 30/11/2025 : Added logger
+// 30/11/2025 : Moved function listFiles from list.php to backup.php
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/general.php';
 
 function getLatestBackupFile(): array | string
 {
-    global $backupFolder;
+    global $backupFolder, $logger;
+    $logger->debug("getLatestBackupFile started");
 
     if (!is_dir($backupFolder)) {
-        throw new Exception('Back-up folder not found', 500);
+        $errorMessage = 'Back-up folder not found';
+        $logger->warning("getLatestBackupFile aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
 
     $files = array_filter(glob("$backupFolder/*"), 'is_file');
 
     if (!$files) {
-        throw new Exception('No files found in back-up folder', 500);
+        $errorMessage = 'No files found in back-up folder';
+        $logger->warning("getLatestBackupFile aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
 
     $latestFile = array_reduce($files, function ($fileA, $fileB) {
@@ -29,11 +37,14 @@ function getLatestBackupFile(): array | string
     }, null);
 
     if ($latestFile === null) {
-        throw new Exception('No valid files found', 500);
+        $errorMessage = 'No valid files found';
+        $logger->warning("getLatestBackupFile aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
 
     $mtime = filemtime($latestFile);
 
+    $logger->debug("getLatestBackupFile ended successfully");
     return [
         "latest_file"   => basename($latestFile),
         "last_modified" => date("Y-m-d H:i:s", $mtime),
@@ -43,18 +54,49 @@ function getLatestBackupFile(): array | string
 
 function listBackupFiles(): array | string
 {
-    global $backupFolder;
-    return listFiles($backupFolder);
+    global $backupFolder, $logger;
+    $logger->debug("listBackupFiles started");
+
+    $result = listFiles($backupFolder);
+
+    $logger->debug("listBackupFiles ended successfully");
+    return $result;
 }
 
+function listFiles($folder): array | string
+{
+    global $logger;
+    $logger->debug("listFiles started");
+
+    if (!is_dir($folder)) {
+        $errorMessage = 'Folder not found';
+        $logger->warning("listFiles aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
+    }
+
+    $filenames = array_filter(glob("$folder/*"), 'is_file');
+    
+    $result = array_map(fn($filename) => [
+        'name' => basename($filename),
+        'hash' => getHash($filename),
+    ], $filenames);
+
+    $logger->debug("listFiles ended successfully");
+    return $result;
+}
 function makeBackupDatabase(): string
 {
+    global $logger;
+    $logger->debug("makeBackupDatabase started/ ended succesfully");
+
     global $configFileName, $backupFolder;
     $CONFIG = getCONFIG();
 
     if (!is_dir($backupFolder)) {
         if (!mkdir($backupFolder, 0755, true)) {
-            throw new Exception('Could not create backup directory', 500);
+            $errorMessage = 'Could not create backup directory';
+            $logger->warning("makeBackupDatabase aborted with error: $errorMessage}");
+            throw new Exception($errorMessage, 500);
         }
     }
 
@@ -84,7 +126,9 @@ function makeBackupDatabase(): string
 
     if ($returnVar !== 0) {
         $deleteSqlFileIfExist();
-        throw new Exception('Backup failed\nOutput:\n' . implode('\n', $output), 500);
+        $errorMessage = 'Backup failed\nOutput:\n' . implode('\n', $output);
+        $logger->warning("makeBackupDatabase aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
 
     // --- Create tar.gz archive ---
@@ -98,57 +142,78 @@ function makeBackupDatabase(): string
     exec($tarCommand, $tarOutput, $tarReturn);
 
     if ($tarReturn !== 0) {
+        $errorMessage = 'Compression failed\nOutput:\n' . implode('\n', $tarOutput);
+        $logger->warning("makeBackupDatabase aborted with error: $errorMessage}");
         $deleteSqlFileIfExist();
-        throw new Exception('Compression failed\nOutput:\n' . implode('\n', $tarOutput), 500);
+        throw new Exception($errorMessage, 500);
     }
 
     $deleteSqlFileIfExist();
 
+    $logger->debug("makeBackupDatabase ended successfully");
     return true;
 }
 
 function deleteBackupFiles(): string
 {
-    global $backupFolder;
+    global $backupFolder, $logger;
+    $logger->debug("deleteBackupFiles started");
+
     if (!isset($_POST['FilenamesWithHashes'])) {
-        throw new Exception('No FilenamesWithHashes parameter gevonden', 500);
+        $errorMessage = 'No FilenamesWithHashes parameter gevonden';
+        $logger->warning("deleteBackupFiles aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
 
     $filenamesWithHashes = json_decode($_POST['FilenamesWithHashes'], true);
 
     if (!is_dir($backupFolder)) {
-        throw new Exception('Back-up folder not found', 500);
+        $errorMessage = 'Back-up folder not found';
+        $logger->warning("deleteBackupFiles aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
 
     if (!is_array($filenamesWithHashes)) {
-        throw new Exception('Invalid input, expected JSON-array', 500);
+        $errorMessage = 'Invalid input, expected JSON-array';
+        $logger->warning("deleteBackupFiles aborted with error: $errorMessage}");
+        throw new Exception($errorMessage, 500);
     }
 
     foreach ($filenamesWithHashes as $filenameWithHash) {
         if (!isset($filenameWithHash['name'], $filenameWithHash['hash'])) {
-            throw new Exception('invalid input', 500);
+            $errorMessage = 'invalid input';
+            $logger->warning("deleteBackupFiles aborted with error: $errorMessage}");
+            throw new Exception($errorMessage, 500);
         }
 
         $filename = $backupFolder . '/' . basename($filenameWithHash['name']); // beveiliging: strip path traversal
 
         if (!is_file($filename)) {
-            throw new Exception("{$filename}: file not found", 500);
+            $errorMessage = 'file not found';
+            $logger->warning("deleteBackupFiles aborted with error: $errorMessage}");
+            throw new Exception($errorMessage, 500);
         }
 
         if (!is_writable($filename)) {
-            throw new Exception("{$filename}: Insufficient permissions to delete file", 500);
+            $errorMessage = "{$filename}: Insufficient permissions to delete file";
+            $logger->warning("deleteBackupFiles aborted with error: $errorMessage}");
+            throw new Exception($errorMessage, 500);
         }
 
         $currentHash = getHash($filename);
 
         if ($currentHash !== $filenameWithHash['hash']) {
-            throw new Exception("{$filename}: hash mismatch", 500);
-        }
+            $errorMessage = "{$filename}: hash mismatch";
+            $logger->warning("deleteBackupFiles aborted with error: $errorMessage}");
+            throw new Exception($errorMessage, 500);
+            }
 
         if (!@unlink($filename)) {
-            throw new Exception("{$filename}: delete failed", 500);
+                $errorMessage = "{$filename}: delete failed";
+                $logger->warning("deleteBackupFiles aborted with error: $errorMessage}");
+                throw new Exception($errorMessage, 500);
         }
     }
-    
+    $logger->debug("deleteBackupFiles ended successfully");    
     return 'Deletion OK';
 }

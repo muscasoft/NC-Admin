@@ -5,13 +5,16 @@
 // 29/11/2025 : Moved functions getCONFIG and getStepPattern from general.php to nextcloud.php
 // 29/11/2025 : Moved php to lib
 // 29/11/2025 : Moved config.php back to php
+// 30/11/2025 : Added logger
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/nextcloud.php';
 
 function getLogData(): array | string
 {
-    global $configFileName;
+    global $configFileName, $logger;
+    $logger->debug("getLogData started");
     try {
         $CONFIG = getCONFIG();
         $dataDirectory = $CONFIG['datadirectory'];
@@ -19,14 +22,18 @@ function getLogData(): array | string
         $logFile = "$dataDirectory/nextcloud.log";
 
         if (!file_exists($logFile)) {
-            throw new Exception('Log file not found');
+            $errorMessage = 'Log file not found';
+            $logger->warning("getLogData aborted with error: $errorMessage}");
+            throw new Exception($errorMessage, 500);
         }
 
         $startDateLogRetrieval = strtotime('-30 days');
 
         $handle = fopen($logFile, 'r');
         if (!$handle) {
-            throw new Exception('Log file could not be opened');
+            $errorMessage = 'Log file could not be opened';
+            $logger->warning("getLogData aborted with error: $errorMessage}");
+            throw new Exception($errorMessage, 500);
         }
 
         $logs = [];
@@ -52,6 +59,7 @@ function getLogData(): array | string
         }
 
         fclose($handle);
+        $logger->debug("getLogData ended successfully");
         return $logs;
     } catch (Exception $e) {
         http_response_code(500);
