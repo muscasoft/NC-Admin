@@ -7,6 +7,7 @@
 // 29/11/2025 : Moved config.php back to php
 // 30/11/2025 : Added logger
 // 30/11/2025 : Moved function listFiles from list.php to backup.php
+// 12/12/2025 : Global $logger replaced by Logger::getInstance()
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/bootstrap.php';
@@ -14,7 +15,8 @@ require_once __DIR__ . '/general.php';
 
 function getLatestBackupFile(): array | string
 {
-    global $backupFolder, $logger;
+    global $backupFolder;
+    $logger = Logger::getInstance();
     $logger->debug("getLatestBackupFile started");
 
     if (!is_dir($backupFolder)) {
@@ -54,7 +56,8 @@ function getLatestBackupFile(): array | string
 
 function listBackupFiles(): array | string
 {
-    global $backupFolder, $logger;
+    global $backupFolder;
+    $logger = Logger::getInstance();
     $logger->debug("listBackupFiles started");
 
     $result = listFiles($backupFolder);
@@ -65,7 +68,7 @@ function listBackupFiles(): array | string
 
 function listFiles($folder): array | string
 {
-    global $logger;
+    $logger = Logger::getInstance();
     $logger->debug("listFiles started");
 
     if (!is_dir($folder)) {
@@ -86,7 +89,7 @@ function listFiles($folder): array | string
 }
 function makeBackupDatabase(): string
 {
-    global $logger;
+    $logger = Logger::getInstance();
     $logger->debug("makeBackupDatabase started/ ended succesfully");
 
     global $configFileName, $backupFolder;
@@ -156,7 +159,8 @@ function makeBackupDatabase(): string
 
 function deleteBackupFiles(): string
 {
-    global $backupFolder, $logger;
+    global $backupFolder;
+    $logger = Logger::getInstance();
     $logger->debug("deleteBackupFiles started");
 
     if (!isset($_POST['FilenamesWithHashes'])) {

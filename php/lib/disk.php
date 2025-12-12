@@ -5,11 +5,12 @@ use LDAP\Result;
 // 26/11/2025 : Removed try/catch from function getDiskStatistics
 // 29/11/2025 : Moved php to lib
 // 30/11/2025 : Added logger
+// 12/12/2025 : Global $logger replaced by Logger::getInstance()
 
 require_once __DIR__ . '/bootstrap.php';
 
 function getDiskStatisticsForHomeDir(): string {
-    global $logger;
+    $logger = Logger::getInstance();
     $logger->debug("getDiskStatisticsForHomeDir started");
 
     $homeDir = getHomeDir();
@@ -37,7 +38,7 @@ function getHomeDir(): string {
 
 function getDiskStatistics($path = '/', $precision = 2, $unit = 'auto'): string
 {
-    global $logger;
+    $logger = Logger::getInstance();
     $logger->debug("getDiskStatistics started");
 
     $command = sprintf('du -sb %s 2>/dev/null', escapeshellarg($path));

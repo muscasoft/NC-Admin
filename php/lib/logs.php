@@ -6,6 +6,7 @@
 // 29/11/2025 : Moved php to lib
 // 29/11/2025 : Moved config.php back to php
 // 30/11/2025 : Added logger
+// 12/12/2025 : Global $logger replaced by Logger::getInstance()
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/bootstrap.php';
@@ -13,7 +14,8 @@ require_once __DIR__ . '/nextcloud.php';
 
 function getLogData(): array | string
 {
-    global $configFileName, $logger;
+    global $configFileName;
+    $logger = Logger::getInstance();
     $logger->debug("getLogData started");
     try {
         $CONFIG = getCONFIG();

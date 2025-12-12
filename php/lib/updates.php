@@ -4,13 +4,15 @@
 // 29/11/2025 : Moved config.php back to php
 // 30/11/2025 : Added logger
 // 30/11/2025 : Moved function removeFile from list.php to updates.php
+// 12/12/2025 : Global $logger replaced by Logger::getInstance()
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/nextcloud.php';
 
 function getNCVersion(): array {
-    global $versionFileName, $configFileName, $logger;
+    global $versionFileName, $configFileName;
+    $logger = Logger::getInstance();
     $logger->debug("getNCVersion started");
     // get  $OC_Build;
     if (!file_exists($versionFileName)) {
@@ -69,7 +71,7 @@ function getNCVersion(): array {
 }
 
 function isUpdateRunning(): int {
-    global $logger;
+    $logger = Logger::getInstance();
     $logger->debug("isUpdateRunning started/ ended succesfully");
     
     $result = !empty(glob(getStepPattern())) ? 1 : 0;
@@ -79,7 +81,7 @@ function isUpdateRunning(): int {
 };
 
 function resetUpdateRunning(): string {
-    global $logger;
+    $logger = Logger::getInstance();
     $logger->debug("resetUpdateRunning started");
 
     $result = removeFile(glob(getStepPattern())[0]);
@@ -89,7 +91,7 @@ function resetUpdateRunning(): string {
 };
 
 function removeFile($filename): string {
-    global $logger;
+    $logger = Logger::getInstance();
     $logger->debug("removeFile started");
 
     if (!is_file($filename)) {

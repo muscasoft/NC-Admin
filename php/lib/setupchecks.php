@@ -7,6 +7,7 @@
 // 29/11/2025 : Moved php to lib
 // 29/11/2025 : Moved config.php back to php
 // 30/11/2025 : Added logger
+// 12/12/2025 : Global $logger replaced by Logger::getInstance()
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/bootstrap.php';
@@ -26,19 +27,22 @@ $definedActions = [
 ];
 
 function getSkipRepairSetupChecks(): array {
-    global $skipRepairSetupChecks, $logger;
+    global $skipRepairSetupChecks;
+    $logger = Logger::getInstance();
     $logger->debug("getSkipRepairSetupChecks started/ ended succesfully");
     return $skipRepairSetupChecks;
 }
 
 function getDefinedActions(): array {
-    global $definedActions, $logger;
+    global $definedActions;
+    $logger = Logger::getInstance();
     $logger->debug("getDefinedActions started/ ended succesfully");
     return $definedActions;
 }
 
 function getSetupChecks(): array | string {
-    global $occCommand, $logger;
+    global $occCommand;
+    $logger = Logger::getInstance();
     $logger->debug("getSetupChecks started");
     $output = shell_exec("php --define apc.enable_cli=1 $occCommand setupchecks --output=json_pretty");
     $obj = json_decode($output);
@@ -68,7 +72,8 @@ function getSetupChecks(): array | string {
 }
 
 function repairMimeTypeMigrationAvailable(): string {
-    global $occCommand, $logger;
+    global $occCommand;
+    $logger = Logger::getInstance();
     $logger->debug("repairMimeTypeMigrationAvailable started");
     if (!is_file($occCommand)) {
         $errorMessage = 'occ not found';
@@ -87,7 +92,8 @@ function repairMimeTypeMigrationAvailable(): string {
 }
 
 function repairDatabaseHasMissingIndices(): string {
-    global $occCommand, $logger;
+    global $occCommand;
+    $logger = Logger::getInstance();
     $logger->debug("repairDatabaseHasMissingIndices started");
     if (!is_file($occCommand)) {
         $errorMessage = 'occ not found';
@@ -107,7 +113,7 @@ function repairDatabaseHasMissingIndices(): string {
 }
 
 function repairSecurityHeaders(): string {
-    global $logger;
+    $logger = Logger::getInstance();
     $logger->debug("repairSecurityHeaders started");
     $searchString = <<<SEARCHSTRING
 #### DO NOT CHANGE ANYTHING ABOVE THIS LINE ####
